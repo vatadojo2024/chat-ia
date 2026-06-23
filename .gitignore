@@ -1,0 +1,12 @@
+# Segredos — NUNCA versionar o .env (contém service_role, Anthropic, Clint).
+.env
+.env.*
+!.env.example
+
+# Ambiente Python local e caches.
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/

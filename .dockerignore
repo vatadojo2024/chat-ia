@@ -1,0 +1,16 @@
+# Não copiar para a imagem (segredos, ambiente local, lixo de build).
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+specs/
+.claude/
