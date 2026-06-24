@@ -49,21 +49,49 @@ def _valor_da_url(url: str, chave: str) -> str | None:
     return None
 
 
+def _buscar_campos(settings: Settings, params: dict) -> dict | None:
+    """Retorna os campos do lead (data[0].fields) ou None. Levanta em erro de rede/http."""
+    headers = {settings.clint_token_header: settings.clint_token, "Accept": "application/json"}
+    with httpx.Client(timeout=_TIMEOUT) as client:
+        resp = client.get(CLINT_BASE, params={**PARAMS_FIXOS, **params}, headers=headers)
+    resp.raise_for_status()
+    dados = resp.json().get("data", [])
+    if not dados:
+        return None
+    # data[0].fields.* (mesmos nomes do backfill, sem prefixo contact_)
+    return dados[0].get("fields", dados[0])
+
+
+def buscar_campos_lead(
+    settings: Settings, *, email: str | None = None, telefone: str | None = None
+) -> dict | None:
+    """Busca os campos do lead por email e/ou telefone (reaproveitado no playbook).
+
+    Tenta email primeiro, depois telefone. Levanta em erro de rede/http/token;
+    devolve None se não encontrar. O chamador decide a resiliência (n/i).
+    """
+    if not settings.clint_token:
+        raise RuntimeError("Token do Clint não configurado no servidor.")
+    if email:
+        campos = _buscar_campos(settings, {"email": email.strip()})
+        if campos:
+            return campos
+    if telefone:
+        tel = normalizar_telefone(telefone)
+        if tel:
+            return _buscar_campos(settings, {"phone": tel})
+    return None
+
+
 def _consultar(settings: Settings, params: dict) -> str:
     if not settings.clint_token:
         return "CRM indisponível: token do Clint não configurado no servidor."
-    headers = {settings.clint_token_header: settings.clint_token, "Accept": "application/json"}
     try:
-        with httpx.Client(timeout=_TIMEOUT) as client:
-            resp = client.get(CLINT_BASE, params={**PARAMS_FIXOS, **params}, headers=headers)
-        resp.raise_for_status()
-        dados = resp.json().get("data", [])
+        campos = _buscar_campos(settings, params)
     except Exception as exc:  # rede, http, json — tudo tratável
         return f"Erro ao consultar o CRM: {exc}"
-    if not dados:
+    if campos is None:
         return "Lead não encontrado no CRM com esse dado."
-    # data[0].fields.* (mesmos nomes do backfill, sem prefixo contact_)
-    campos = dados[0].get("fields", dados[0])
     return json.dumps(campos, ensure_ascii=False)
 
 

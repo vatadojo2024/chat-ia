@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import Identity, get_identity
 from .chat import router as chat_router
 from .config import Settings, get_settings
+from .playbook import router as playbook_router
 from .roles import resolve_papel
 
 app = FastAPI(title="Chat IA-Guia — Serviço (Etapa 4bc)", version="1.2")
@@ -56,3 +57,4 @@ async def me(
 
 
 app.include_router(chat_router)
+app.include_router(playbook_router)

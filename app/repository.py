@@ -156,3 +156,86 @@ async def atualizar_mensagem(
         )
     resp.raise_for_status()
     return resp.json()[0]
+
+
+# --------------------------- playbook_jobs (P1) ------------------------------
+
+_PLAYBOOK_LISTA_COLS = (
+    "id,status,fase_atual,origem_arquivo,lead_email,lead_telefone,erro,created_at,updated_at"
+)
+
+
+async def criar_job(
+    user_id: str,
+    settings: Settings,
+    *,
+    origem_arquivo: str,
+    lead_email: str | None,
+    lead_telefone: str | None,
+    transcricao: str,
+) -> dict:
+    payload = {
+        "user_id": user_id,
+        "status": "pendente",
+        "origem_arquivo": origem_arquivo,
+        "lead_email": lead_email,
+        "lead_telefone": lead_telefone,
+        "transcricao": transcricao,
+    }
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            _rest(settings, "playbook_jobs"),
+            headers=_headers(settings, representation=True),
+            json=payload,
+        )
+    resp.raise_for_status()
+    return resp.json()[0]
+
+
+async def listar_jobs(user_id: str, settings: Settings) -> list[dict]:
+    params = {
+        "user_id": f"eq.{user_id}",
+        "select": _PLAYBOOK_LISTA_COLS,
+        "order": "updated_at.desc",
+    }
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.get(
+            _rest(settings, "playbook_jobs"), headers=_headers(settings), params=params
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+async def buscar_job(job_id: str, settings: Settings) -> dict | None:
+    params = {"id": f"eq.{job_id}", "select": "*", "limit": "1"}
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.get(
+            _rest(settings, "playbook_jobs"), headers=_headers(settings), params=params
+        )
+    resp.raise_for_status()
+    linhas = resp.json()
+    return linhas[0] if linhas else None
+
+
+async def atualizar_job(job_id: str, settings: Settings, **campos) -> dict:
+    payload = {k: v for k, v in campos.items() if v is not None}
+    payload["updated_at"] = _now_iso()
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.patch(
+            _rest(settings, "playbook_jobs"),
+            headers=_headers(settings, representation=True),
+            params={"id": f"eq.{job_id}"},
+            json=payload,
+        )
+    resp.raise_for_status()
+    return resp.json()[0]
+
+
+async def apagar_job(job_id: str, settings: Settings) -> None:
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.delete(
+            _rest(settings, "playbook_jobs"),
+            headers=_headers(settings),
+            params={"id": f"eq.{job_id}"},
+        )
+    resp.raise_for_status()

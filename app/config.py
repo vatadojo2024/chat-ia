@@ -32,6 +32,8 @@ class Settings:
         # IA vira status 'erro' (caminho de falha previsto), o serviço continua de pé.
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY") or ""
         self.chat_model = os.getenv("CHAT_MODEL") or "claude-sonnet-4-6"
+        # Gerador de playbook: modelo Opus, configurável. NÃO assumir opus-4-7.
+        self.playbook_model = os.getenv("PLAYBOOK_MODEL") or "claude-opus-4-8"
         self.history_limit = int(os.getenv("HISTORY_LIMIT") or "20")
         # Limite de rodadas de ferramenta do agente (Etapa 4bc), trava de segurança.
         self.agent_max_iters = int(os.getenv("AGENT_MAX_ITERS") or "6")
