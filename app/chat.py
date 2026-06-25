@@ -8,6 +8,7 @@ do usuário do login antes de ler/gravar.
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Response, status
 from pydantic import BaseModel, field_validator
@@ -18,6 +19,8 @@ from .ai import montar_turnos, responder_com_agente
 from .auth import Identity, get_identity
 from .config import Settings, get_settings
 from .roles import resolve_papel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -135,6 +138,11 @@ async def processar_resposta_ia(
         )
         await repo.atualizar_mensagem(msg_ia_id, settings, conteudo=texto, status="pronta")
     except Exception:
+        # Loga o traceback no stdout (docker logs) ANTES de gravar o status.
+        logger.exception(
+            "Falha ao processar resposta da IA (conversa=%s msg=%s agente=%s)",
+            conversa_id, msg_ia_id, agente,
+        )
         # Qualquer falha (IA, prompt, rede) marca a mensagem como erro (RF-03).
         await repo.atualizar_mensagem(msg_ia_id, settings, status="erro")
     finally:

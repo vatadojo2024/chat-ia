@@ -9,6 +9,8 @@ Sem admin, sem gerador de playbook, sem resumo (Etapa 6).
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,6 +19,13 @@ from .chat import router as chat_router
 from .config import Settings, get_settings
 from .playbook import router as playbook_router
 from .roles import resolve_papel
+
+# Garante que os logs do app (ex.: traceback do background task) saiam no stdout
+# do container (docker logs). Sob uvicorn o root logger costuma ficar sem handler.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 app = FastAPI(title="Chat IA-Guia — Serviço (Etapa 4bc)", version="1.2")
 
