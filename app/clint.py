@@ -83,6 +83,26 @@ def buscar_campos_lead(
     return None
 
 
+def buscar_lead_resultado(
+    settings: Settings, *, email: str | None = None, telefone: str | None = None
+) -> str:
+    """Resultado da tool `buscar_lead` (agente do Vata).
+
+    Reusa buscar_campos_lead (normaliza telefone internamente, prefere email).
+    Encontrado → JSON dos campos; não encontrado → {"encontrado": false};
+    erro/rede → texto curto tratável (não derruba a resposta).
+    """
+    if not (email or telefone):
+        return json.dumps({"erro": "Forneça email ou telefone."}, ensure_ascii=False)
+    try:
+        campos = buscar_campos_lead(settings, email=email, telefone=telefone)
+    except Exception as exc:  # token/rede/http — tratável
+        return f"Erro ao consultar o CRM: {exc}"
+    if not campos:
+        return json.dumps({"encontrado": False}, ensure_ascii=False)
+    return json.dumps(campos, ensure_ascii=False)
+
+
 def _consultar(settings: Settings, params: dict) -> str:
     if not settings.clint_token:
         return "CRM indisponível: token do Clint não configurado no servidor."

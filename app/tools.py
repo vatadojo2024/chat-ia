@@ -1,7 +1,8 @@
-"""Ferramentas por papel (T-02). Nomes fixos para os prompts funcionarem sem reescrita:
+"""Ferramentas por AGENTE. Nomes fixos para os prompts funcionarem sem reescrita:
 
-- SDR    -> dados_lead(telefone)                  [55DDDNUMERO]
-- CLOSER -> pesquisa_email(url), pesquisa_numero(url), buscar_conversa(chave)
+- sdr    -> dados_lead(telefone)                  [55DDDNUMERO]
+- closer -> pesquisa_email(url), pesquisa_numero(url), buscar_conversa(chave)
+- vata   -> buscar_lead(email?, telefone?)        [CRM Clint, normaliza no servidor]
 
 Todas as de CRM chamam clint.* (servidor monta URL + adiciona token).
 buscar_conversa só entra se houver REDIS_URL.
@@ -16,10 +17,23 @@ from .config import Settings
 from .redis_tool import buscar_conversa_redis
 
 
-def build_tools(papel: str, settings: Settings) -> list[StructuredTool]:
+def build_tools(agente: str, settings: Settings) -> list[StructuredTool]:
     tools: list[StructuredTool] = []
 
-    if papel == "sdr":
+    if agente == "vata":
+        def buscar_lead(email: str | None = None, telefone: str | None = None) -> str:
+            return clint.buscar_lead_resultado(settings, email=email, telefone=telefone)
+
+        tools.append(StructuredTool.from_function(
+            func=buscar_lead,
+            name="buscar_lead",
+            description=(
+                "Busca o registro do lead no CRM Clint. "
+                "Forneça email OU telefone (pelo menos um)."
+            ),
+        ))
+
+    elif agente == "sdr":
         def dados_lead(telefone: str) -> str:
             return clint.lookup_por_telefone(settings, telefone)
 
@@ -32,7 +46,7 @@ def build_tools(papel: str, settings: Settings) -> list[StructuredTool]:
             ),
         ))
 
-    elif papel == "closer":
+    elif agente == "closer":
         def pesquisa_email(url: str) -> str:
             return clint.lookup_por_url_email(settings, url)
 

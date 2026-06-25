@@ -12,11 +12,11 @@ import asyncio
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Response, status
 from pydantic import BaseModel, field_validator
 
+from . import agentes
 from . import repository as repo
 from .ai import montar_turnos, responder_com_agente
 from .auth import Identity, get_identity
 from .config import Settings, get_settings
-from .prompts import load_system_prompt
 from .roles import resolve_papel
 
 router = APIRouter()
@@ -107,9 +107,11 @@ async def enviar_mensagem(
     # 2) resposta da IA, pendente (conteúdo vazio por enquanto)
     msg_ia = await repo.inserir_mensagem(conversa_id, "ia", "", "pendente", settings)
 
-    # 3) agenda o processamento e responde NA HORA (sem esperar a IA)
+    # 3) agenda o processamento e responde NA HORA (sem esperar a IA).
+    # O AGENTE é resolvido por e-mail (mapa em app/agentes.py); senão cai no papel.
+    agente = agentes.resolver_agente(identity.email, conversa["papel"])
     background_tasks.add_task(
-        processar_resposta_ia, conversa_id, msg_ia["id"], conversa["papel"], settings
+        processar_resposta_ia, conversa_id, msg_ia["id"], agente, settings
     )
     return {"mensagem_usuario": msg_usuario, "mensagem_ia": msg_ia}
 
@@ -117,18 +119,19 @@ async def enviar_mensagem(
 # ----------------------- tarefa em segundo plano (T-05) ----------------------
 
 async def processar_resposta_ia(
-    conversa_id: str, msg_ia_id: str, papel: str, settings: Settings
+    conversa_id: str, msg_ia_id: str, agente: str, settings: Settings
 ) -> None:
-    """Monta o prompt (system do papel + histórico), chama a IA e atualiza a msg-IA."""
+    """Monta o prompt (system do agente + histórico), chama a IA e atualiza a msg-IA."""
     try:
         historico = await repo.listar_mensagens(
             conversa_id, settings, somente_pronta=True, limite=settings.history_limit
         )
-        system_prompt = load_system_prompt(papel)
+        system_prompt = agentes.load_prompt(agente)
+        max_tokens = agentes.max_tokens_do_agente(agente)
         turnos = montar_turnos(historico)
         # agente (tool-calling) é bloqueante → roda em thread para não travar o loop (polling segue).
         texto = await asyncio.to_thread(
-            responder_com_agente, system_prompt, turnos, papel, settings
+            responder_com_agente, system_prompt, turnos, agente, settings, max_tokens
         )
         await repo.atualizar_mensagem(msg_ia_id, settings, conteudo=texto, status="pronta")
     except Exception:

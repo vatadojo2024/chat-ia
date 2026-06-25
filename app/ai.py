@@ -53,9 +53,17 @@ def _texto(content) -> str:
 
 
 def responder_com_agente(
-    system_prompt: str, turnos: list[BaseMessage], papel: str, settings: Settings
+    system_prompt: str,
+    turnos: list[BaseMessage],
+    agente: str,
+    settings: Settings,
+    max_tokens: int = 1500,
 ) -> str:
-    """Roda o loop de tool-calling e devolve o texto final da resposta."""
+    """Roda o loop de tool-calling e devolve o texto final da resposta.
+
+    As ferramentas e o teto de saída são decididos por AGENTE (ver app/agentes.py).
+    Os blocos tool_use/tool_result vivem só aqui — não são persistidos (RNF-01).
+    """
     if not settings.anthropic_api_key:
         raise IAIndisponivel("ANTHROPIC_API_KEY ausente no .env.")
 
@@ -63,10 +71,10 @@ def responder_com_agente(
         model=settings.chat_model,
         api_key=settings.anthropic_api_key,
         temperature=0.7,
-        max_tokens=1500,
-        timeout=120,
+        max_tokens=max_tokens,
+        timeout=180,
     )
-    ferramentas = build_tools(papel, settings)
+    ferramentas = build_tools(agente, settings)
     por_nome = {t.name: t for t in ferramentas}
     modelo_exec = modelo.bind_tools(ferramentas) if ferramentas else modelo
 
